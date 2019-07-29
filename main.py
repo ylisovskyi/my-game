@@ -3,16 +3,23 @@ import re
 import os
 import time
 
+WIDTH = 800
+HEIGHT = 800
+sizes = [WIDTH, HEIGHT]
+
 
 # Load images
 bg = pygame.image.load(os.path.join('media', 'bg.jpg'))
+bg = pygame.transform.scale(bg, (WIDTH, HEIGHT))
 char = pygame.image.load(os.path.join('media', 'standing.png'))
 
 # Initialisation
 pygame.init()
-win = pygame.display.set_mode((500, 500))
+win = pygame.display.set_mode((WIDTH, HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
 pygame.display.set_caption('First game')
 clock = pygame.time.Clock()
+
+# Load sounds
 bullet_sound = pygame.mixer.Sound(os.path.join('media', 'bullet.wav'))
 hit_sound = pygame.mixer.Sound(os.path.join('media', 'hit.wav'))
 music = pygame.mixer.music.load(os.path.join('media', 'music.mp3'))
@@ -29,15 +36,15 @@ def load_media_by_pattern(pattern):
 
 
 def redraw():
-    global goblins, goblin_spawn_clock, level, goblin_counter
-    win.blit(bg, (0, 0))
+    global goblins, goblin_spawn_clock, level, goblin_counter, WIDTH, HEIGHT
+    win.blit(pygame.transform.scale(bg, (sizes[0], sizes[1])), (0, 0))
     text = font.render('Score: {}'.format(score), 1, (0, 0, 0))
-    win.blit(text, (370, 10))
+    win.blit(text, (WIDTH * 0.75, 10))
     character.draw(win)
     for gob in goblins:
         gob.draw(win)
     if (time.time() - goblin_spawn_clock) // level > 1:
-        goblins.append(Enemy(0, 422, 64, 64, 450))
+        goblins.append(Enemy(0, HEIGHT * 0.9, 64, 64, WIDTH - 50))
         goblin_spawn_clock = time.time()
         goblin_counter += 1
         if goblin_counter % 5 == 0 and level != 0:
@@ -66,12 +73,16 @@ class Person(object):
         self.start_health = self.health
 
     def draw(self, window):
-        pygame.draw.rect(window, (255, 0, 0), (self.hit_box[0], self.hit_box[1] - 20, 50, 10))
-        pygame.draw.rect(window, (0, 128, 0), (self.hit_box[0], self.hit_box[1] - 20, self.health / self.start_health * 50, 10))
         self.hit_box = (self.x + 17, self.y + 11, 28, 60)
+        pygame.draw.rect(window, (255, 0, 0), (self.hit_box[0], self.hit_box[1] - 20, 50, 10))
+        pygame.draw.rect(
+            window,
+            (0, 128, 0),
+            (self.hit_box[0], self.hit_box[1] - 20, self.health / self.start_health * 50, 10)
+        )
 
     def move_right(self):
-        if self.x < 500 - self.width - self.velocity:
+        if self.x < WIDTH - self.width - self.velocity:
             self.x += self.velocity
             self.left = False
             self.right = True
@@ -139,10 +150,10 @@ class Player(Person):
         if res < 0:
             global score
             score -= 5
-            self.__init__(300, 415, self.width, self.height)
+            self.__init__(WIDTH * 0.6, HEIGHT * 0.9, self.width, self.height)
             font1 = pygame.font.SysFont('comicsans', 100)
             text = font1.render('-5', 1, (255, 0, 0))
-            win.blit(text, (250 - (text.get_width() / 2), 200))
+            win.blit(text, (WIDTH / 2 - (text.get_width() / 2), HEIGHT * 0.45))
             pygame.display.update()
             for i in range(0, 300, 10):
                 pygame.time.delay(10)
@@ -188,7 +199,7 @@ class Enemy(Person):
 
     def move(self):
         if self.velocity > 0:
-            if self.x + self.velocity < self.path[1]:
+            if self.x + self.velocity < WIDTH - 50:
                 self.x += self.velocity
             else:
                 self.velocity *= -1
@@ -202,11 +213,11 @@ class Enemy(Person):
 
 
 font = pygame.font.SysFont('comicsans', 30, True)
-character = Player(300, 415, 64, 64)
+character = Player(WIDTH * 0.6, HEIGHT * 0.9, 64, 64)
 score = 0
 shoot_loop = 0
 bullets = []
-goblins = [Enemy(0, 422, 64, 64, 450)]
+goblins = [Enemy(0, HEIGHT * 0.9, 64, 64, WIDTH - 50)]
 run = True
 goblin_spawn_clock = time.time()
 goblin_counter = 1
@@ -214,8 +225,9 @@ level = 5
 
 while run:
 
-    clock.tick(30)
+    clock.tick(30)  # 30 FPS
 
+    # Goblins collision with player
     for goblin in goblins:
         if (
                 goblin and
@@ -239,6 +251,9 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+        if event.type == pygame.VIDEORESIZE:
+            sizes[0] = event.dict['size'][0]
+            sizes[1] = event.dict['size'][1]
 
     # Moving/destroying bullets
     for bullet in bullets:
@@ -256,7 +271,7 @@ while run:
                 bullets.pop(bullets.index(bullet))
                 score += 1
 
-        if 0 < bullet.x < 500:
+        if 0 < bullet.x < WIDTH:
             bullet.x += bullet.velocity
         else:
             bullets.pop(bullets.index(bullet))
