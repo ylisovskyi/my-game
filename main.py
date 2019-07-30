@@ -5,7 +5,6 @@ import time
 
 WIDTH = 800
 HEIGHT = 800
-sizes = [WIDTH, HEIGHT]
 
 
 # Load images
@@ -15,7 +14,7 @@ char = pygame.image.load(os.path.join('media', 'standing.png'))
 
 # Initialisation
 pygame.init()
-win = pygame.display.set_mode((WIDTH, HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
+WINDOW = pygame.display.set_mode((WIDTH, HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
 pygame.display.set_caption('First game')
 clock = pygame.time.Clock()
 
@@ -35,14 +34,16 @@ def load_media_by_pattern(pattern):
     return output_list
 
 
-def redraw():
-    global goblins, goblin_spawn_clock, level, goblin_counter, WIDTH, HEIGHT
-    win.blit(pygame.transform.scale(bg, (sizes[0], sizes[1])), (0, 0))
+def redraw(resized):
+    global goblins, goblin_spawn_clock, level, goblin_counter, bg
+    if not resized:
+        bg = pygame.transform.scale(bg, (WIDTH, HEIGHT))
+        WINDOW.blit(bg, (0, 0))
     text = font.render('Score: {}'.format(score), 1, (0, 0, 0))
-    win.blit(text, (WIDTH * 0.75, 10))
-    character.draw(win)
+    WINDOW.blit(text, (WIDTH * 0.75, 10))
+    character.draw(WINDOW)
     for gob in goblins:
-        gob.draw(win)
+        gob.draw(WINDOW)
     if (time.time() - goblin_spawn_clock) // level > 1:
         goblins.append(Enemy(0, HEIGHT * 0.9, 64, 64, WIDTH - 50))
         goblin_spawn_clock = time.time()
@@ -50,8 +51,9 @@ def redraw():
         if goblin_counter % 5 == 0 and level != 0:
             level -= 1
     for bul in bullets:
-        bul.draw(win)
-    pygame.display.update()
+        bul.draw(WINDOW)
+    if not resized:
+        pygame.display.flip()
 
 
 class Person(object):
@@ -153,7 +155,7 @@ class Player(Person):
             self.__init__(WIDTH * 0.6, HEIGHT * 0.9, self.width, self.height)
             font1 = pygame.font.SysFont('comicsans', 100)
             text = font1.render('-5', 1, (255, 0, 0))
-            win.blit(text, (WIDTH / 2 - (text.get_width() / 2), HEIGHT * 0.45))
+            WINDOW.blit(text, (WIDTH / 2 - (text.get_width() / 2), HEIGHT * 0.45))
             pygame.display.update()
             for i in range(0, 300, 10):
                 pygame.time.delay(10)
@@ -225,6 +227,7 @@ level = 5
 
 while run:
 
+    resized = False
     clock.tick(30)  # 30 FPS
 
     # Goblins collision with player
@@ -252,8 +255,21 @@ while run:
         if event.type == pygame.QUIT:
             run = False
         if event.type == pygame.VIDEORESIZE:
-            sizes[0] = event.dict['size'][0]
-            sizes[1] = event.dict['size'][1]
+            WINDOW = pygame.display.set_mode(event.dict['size'], pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE)
+            WINDOW.blit(pygame.transform.scale(bg, event.dict['size']), (0, 0))
+            WIDTH = event.dict['size'][0]
+            HEIGHT = event.dict['size'][1]
+            resized = True
+            character.y = HEIGHT * 0.9
+            if character.x > WIDTH - character.velocity - character.width:
+                character.x = WIDTH - character.velocity - character.width
+
+            for goblin in goblins:
+                if goblin.x > WIDTH - goblin.velocity - goblin.width:
+                    goblin.x = WIDTH - goblin.velocity - goblin.width
+
+                goblin.y = HEIGHT * 0.9
+            pygame.display.flip()
 
     # Moving/destroying bullets
     for bullet in bullets:
@@ -312,6 +328,6 @@ while run:
     else:
         character.jump()
 
-    redraw()
+    redraw(resized)
 
 pygame.quit()
